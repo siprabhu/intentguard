@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use IntentGuard, please cite the software and accompanying paper."
+title: "IntentGuard"
+type: software
+version: 0.1.0
+date-released: 2026-08-25
+authors:
+  - family-names: "TODO"
+    given-names: "TODO"
+repository-code: "https://github.com/TODO/intentguard"
+
