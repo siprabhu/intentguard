@@ -1,0 +1,9 @@
+{
+  "experiment_id": "pilot-v0",
+  "benchmark_version": "0.1.0",
+  "defenses": ["none", "static_allowlist", "prompt_only", "intentguard"],
+  "model": "TODO",
+  "temperature": 0,
+  "repetitions": 1
+}
+

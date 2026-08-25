@@ -1,0 +1,6 @@
+work,year,problem,threat_model,authorization_primitive,provenance,trajectory_awareness,benchmark,closest_overlap,verified
+AgentDojo,2024,prompt injection in tool-using agents,TBD,TBD,TBD,TBD,AgentDojo,dynamic agent-security benchmark,false
+Task Shield,2025,task alignment for indirect prompt injection,TBD,TBD,TBD,TBD,TBD,task-alignment defense,false
+PAuth,2026,precise task-scoped authorization,TBD,TBD,TBD,TBD,TBD,task-scoped authorization,false
+AARM,2026,runtime action management,TBD,TBD,TBD,TBD,TBD,runtime enforcement,false
+

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["id", "category", "user_task", "contract", "proposed_actions", "expected_decisions", "rationale"],
+  "properties": {
+    "id": {"type": "string"},
+    "category": {"type": "string"},
+    "user_task": {"type": "string"},
+    "contract": {"type": "object"},
+    "untrusted_content": {"type": ["string", "null"]},
+    "proposed_actions": {"type": "array"},
+    "expected_decisions": {"type": "array", "items": {"enum": ["ALLOW", "CONFIRM", "BLOCK"]}},
+    "prohibited_outcome": {"type": ["string", "null"]},
+    "rationale": {"type": "string"}
+  }
+}
+
