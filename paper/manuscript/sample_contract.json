@@ -1,0 +1,9 @@
+{
+  "objective": "Read invoice; confirm sending",
+  "allowed_operations": ["read", "send"],
+  "allowed_resources": ["invoice_123"],
+  "allowed_destinations": ["user@example.com"],
+  "prohibited_operations": ["delete"],
+  "confirmation_required": ["external_communication"],
+  "max_action_count": 2
+}
