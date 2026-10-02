@@ -1,7 +1,13 @@
 # IntentGuard Architecture and Scope
 
-Status: Step 2 research design
-Last updated: 2026-08-25
+Status: deterministic execution baseline implemented; extended architecture planned
+Last updated: 2026-09-30
+
+The current implementation adds a trusted tool registry, guarded in-memory
+execution, serialized task counting, input validation, and a 32-case replay
+runner. See `paper-implementation-status.md` for the current evidence. The
+provenance, authenticated-approval, tamper-evident logging, and multi-agent
+components described below remain architectural targets, not completed features.
 
 ## Architectural position
 
@@ -96,7 +102,7 @@ cryptographic identity protocols are outside the initial paper.
 
 ## Technical implementation scope
 
-### Implemented baseline (v0.1)
+### Implemented deterministic baseline
 
 - immutable Python `IntentContract` and typed `ProposedAction`;
 - deterministic operation, resource, destination, confirmation, and action
@@ -104,7 +110,11 @@ cryptographic identity protocols are outside the initial paper.
 - `ALLOW`, `CONFIRM`, and `BLOCK` decisions with reasons;
 - safe in-memory tool environment;
 - versioned JSON benchmark schema and initial cases;
-- four unit tests for core deterministic behavior.
+- 28 unit, runtime, validation, and benchmark regression tests;
+- trusted tool metadata, suspended confirmation, and blocked-execution checks;
+- serialized task counting including concurrent calls and tool failures;
+- P01-P15 synthetic pairs plus the two original cases;
+- reproducible four-policy runner with machine-readable traces and source hashes.
 
 ### Step 2 target
 

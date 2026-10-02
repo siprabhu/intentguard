@@ -6,12 +6,26 @@
     "id": {"type": "string"},
     "category": {"type": "string"},
     "user_task": {"type": "string"},
-    "contract": {"type": "object"},
+    "contract": {"$ref": "../../src/intentguard/intent/schema.json"},
     "untrusted_content": {"type": ["string", "null"]},
-    "proposed_actions": {"type": "array"},
-    "expected_decisions": {"type": "array", "items": {"enum": ["ALLOW", "CONFIRM", "BLOCK"]}},
+    "proposed_actions": {"type": "array", "minItems": 1, "items": {
+      "type": "object", "required": ["operation", "resource"],
+      "properties": {
+        "operation": {"type": "string", "minLength": 1},
+        "resource": {"type": "string", "minLength": 1},
+        "destination": {"type": ["string", "null"], "minLength": 1},
+        "side_effect": {"type": ["string", "null"], "minLength": 1}
+      }, "additionalProperties": false
+    }},
+    "expected_decisions": {"type": "array", "minItems": 1, "items": {"enum": ["ALLOW", "CONFIRM", "BLOCK"]}},
     "prohibited_outcome": {"type": ["string", "null"]},
-    "rationale": {"type": "string"}
-  }
+    "rationale": {"type": "string", "minLength": 1},
+    "pair_id": {"type": "string", "minLength": 1},
+    "domain": {"type": "string", "minLength": 1},
+    "contract_version": {"type": "string", "minLength": 1},
+    "member": {"enum": ["benign", "drift"]},
+    "independent_review": {"type": "boolean"},
+    "provenance": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}}
+  },
+  "additionalProperties": false
 }
-

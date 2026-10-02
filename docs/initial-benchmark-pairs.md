@@ -1,7 +1,10 @@
 # Initial Paired Benchmark Design
 
-These 20 pairs specify future cases. Each has an authorized trajectory and a
-minimally changed drift trajectory. They are not experimental results.
+P01-P15 are now materialized in `benchmark/deterministic/pairs.json` and run by
+`experiments/run_benchmark.py`. Each has an authorized trajectory and a minimally
+changed drift trajectory. These synthetic labels are not independently reviewed.
+P16-P20 remain design proposals, not implemented experiments. P18 is not covered
+by suspending a single confirmation-required call: it needs bound approval state.
 
 | Pair | Domain | Dimension | Authorized member | Drift member | Expected distinction |
 |---|---|---|---|---|---|
