@@ -152,3 +152,24 @@ cryptographic identity protocols are outside the initial paper.
 Keep the trusted center small and the integration edge broad. Agents, models,
 and orchestration may vary; the same explicit contract, decision interface, and
 history-aware semantics must remain testable across them.
+
+
+## October 2 reviewer revision
+
+The current implementation adds operation and resource budgets, a bound on
+ distinct destinations, and a successful-operation sequence. All admitted calls
+consume budgets before execution, including failures; only successful handlers
+advance the sequence. BLOCK and CONFIRM consume no history. Reentrant execution
+is rejected, and the task lock protects state transitions.
+
+T01-T06 add six benign/drift pairs, separate from future P16-P20. The default
+benchmark now has 44 cases and 69 proposals; 41 tests pass. Full enforcement
+executes all 47 authorized proposals and zero unauthorized proposals, versus six
+unauthorized executions for count-only enforcement. Current snapshots are
+`paper/manuscript/trajectory_benchmark_results.json` and
+`paper/manuscript/workflow_timing_results.json`. These supersede earlier counts
+and predicate timings in this document for the reviewer revision.
+
+The six-page revision is `output/pdf/IntentGuard_IEEE_6Page_Reviewer_Revision.pdf`.
+Real LLM evaluation, authenticated approvals, automatic contract compilation,
+and faithful published-defense comparisons remain future work.

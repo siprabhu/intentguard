@@ -14,17 +14,17 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 OUT = ROOT/'output/pdf'
 OUT.mkdir(parents=True, exist_ok=True)
-data = json.loads((HERE/'runtime_timing_results.json').read_text())
-benchmark = json.loads((HERE/'runtime_benchmark_results.json').read_text())
-if data['source_sha256'] != hashlib.sha256((ROOT/'src/intentguard/guard/authorization.py').read_bytes()).hexdigest():
-    raise ValueError('Timing snapshot is stale for the current validator')
-for filename, digest in benchmark['metadata']['sha256'].items():
-    if hashlib.sha256((ROOT/filename).read_bytes()).hexdigest() != digest:
-        raise ValueError(f'Benchmark snapshot is stale: {filename}')
+data = json.loads((HERE/'workflow_timing_results.json').read_text())
+benchmark = json.loads((HERE/'trajectory_benchmark_results.json').read_text())
+for snapshot in [data, benchmark]:
+    for filename, digest in snapshot['metadata']['sha256'].items():
+        actual = hashlib.sha256((ROOT/filename).read_text(encoding='utf-8').encode('utf-8')).hexdigest()
+        if actual != digest:
+            raise ValueError(f'Evidence snapshot is stale: {filename}')
 sample = (HERE/'sample_contract.json').read_text().strip()
-policies = ['none','operation_only','no_history','intentguard']
+policies = ['none','operation_only','no_history','count_only','intentguard']
 result_rows = [['Policy','Agreement','Unauth.','Auth.']]
-for label, policy in zip(['No guard','Operation only','No history','IntentGuard'],policies):
+for label, policy in zip(['No guard','Operation only','No history','Count only','IntentGuard'],policies):
     row=benchmark['summary'][policy]
     result_rows.append([label,f"{row['matched_decisions']}/{row['actions']}",str(row['unauthorized_executions']),f"{row['authorized_executions']}/{row['authorized_actions']}"])
 outcome_rows = [['Separate proposal','History h','Decision'],['Read invoice_123','0','ALLOW'],['Read payroll','0','BLOCK'],['Send to external address','0','BLOCK'],['Send to user@example.com','0','CONFIRM'],['Read invoice_123','2','BLOCK']]
@@ -58,10 +58,12 @@ def box(d,x,y,w,h,lines,dashed=False):
     d.add(Rect(x,y,w,h,fillColor=colors.white,strokeColor=colors.black,strokeWidth=.7,strokeDashArray=[3,2] if dashed else None))
     for i,s in enumerate(lines): txt(d,x+w/2,y+h/2+(len(lines)-1)*4.5-i*9-2.5,s)
 def architecture():
-    d=Drawing(W,159)
+    d=Drawing(W,205)
+    box(d,4,164,243,31,['Proposed: natural-language compiler -> host validation','Current: manually supplied structured contract'],dashed=True)
+    arrow(d,54,164,54,149)
     box(d,4,121,100,28,['Host-supplied contract','validated policy object'])
     box(d,147,121,100,28,['Agent proposal','normalized action'])
-    box(d,41,74,170,28,['Registry + predicate + shared count','GuardedRuntime with task lock'])
+    box(d,41,74,170,28,['Registry + predicate + trajectory state','GuardedRuntime with task lock'])
     arrow(d,54,121,105,102); arrow(d,197,121,147,102)
     box(d,6,24,73,27,['BLOCK','no execution'])
     box(d,91,24,73,27,['CONFIRM','suspend'])
@@ -71,7 +73,7 @@ def architecture():
     return d
 def flow():
     d=Drawing(W,151)
-    box(d,22,113,145,26,['Adapter / operand / contract','or count violation?'])
+    box(d,22,113,145,26,['Adapter / operand / contract','budget / sequence violation?'])
     box(d,183,115,64,22,['BLOCK'])
     arrow(d,167,126,183,126); txt(d,175,132,'yes',7)
     box(d,22,62,145,27,['Trusted side effect','requires confirmation?'])
@@ -90,39 +92,42 @@ def axes(d, xlabel, ylabel, ylim, yticks):
     txt(d,139,3,xlabel,8); txt(d,38,128,ylabel,8,'start')
     return x0,y0,x1,y1
 def comparison():
-    d=Drawing(W,142); x0,y0,x1,y1=axes(d,'Policy','Unauthorized mock executions (lower is better)',18,[0,4,8,12,16])
+    d=Drawing(W,142); x0,y0,x1,y1=axes(d,'Policy','Unauthorized mock executions (lower is better)',24,[0,6,12,18,24])
     for i,policy in enumerate(policies):
         score=benchmark['summary'][policy]['unauthorized_executions']
-        x=52+i*49; h=score/18*(y1-y0)
+        x=43+i*40; h=score/24*(y1-y0)
         d.add(Rect(x,y0,25,h,fillColor=colors.Color(.25+i*.13,.25+i*.13,.25+i*.13),strokeColor=colors.black,strokeWidth=.5))
         txt(d,x+12.5,y0+h+4,str(score),8)
-        txt(d,x+12.5,18,['None','Op. only','No hist.','Full'][i],7)
+        txt(d,x+12.5,18,['None','Op.','No hist.','Count','Full'][i],7)
     return d
+def percentile_plot(conditions, labels, xlabel):
+    d=Drawing(W,142); x0,y0,x1,y1=axes(d,xlabel,'Three-call workflow latency (microseconds)',60,[0,20,40,60])
+    for j,q in enumerate(['p50','p95','p99']):
+        pts=[]
+        shade=j*.3
+        for i,c in enumerate(conditions):
+            x=x0+12+i*(x1-x0-24)/(len(conditions)-1)
+            y=y0+data['summary_us'][c][q]/60*(y1-y0)
+            pts.extend([x,y]);d.add(Rect(x-2,y-2,4,4,fillColor=colors.Color(shade,shade,shade)))
+            if j==0:txt(d,x,18,labels[i],7)
+        d.add(PolyLine(pts,strokeWidth=1,strokeColor=colors.Color(shade,shade,shade)))
+        txt(d,90+j*53,117,q,7)
+    return d
+
 def scalability():
-    d=Drawing(W,142); x0,y0,x1,y1=axes(d,'Allowed-resource entries (log spacing)','Batch-average latency (microseconds)',.6,[0,.2,.4,.6])
-    pts=[]
-    for i,(n,s) in enumerate(data['summary_us'].items()):
-        x=x0+10+i*45; y=y0+s['median']/.6*(y1-y0); pts.extend([x,y])
-        low=y0+s['q1']/.6*(y1-y0); high=y0+s['q3']/.6*(y1-y0)
-        d.add(Line(x,low,x,high,strokeWidth=.8));d.add(Line(x-3,low,x+3,low));d.add(Line(x-3,high,x+3,high))
-        d.add(Rect(x-2,y-2,4,4,fillColor=colors.black));txt(d,x,18,{'1000':'1k','10000':'10k'}.get(n,n),7)
-    d.add(PolyLine(pts,strokeWidth=.8,strokeColor=colors.black))
-    return d
+    return percentile_plot(['trajectory_'+str(n) for n in [1,10,100,1000,10000]],['1','10','100','1k','10k'],'Allowed-resource entries (log spacing)')
+
 def stability():
-    d=Drawing(W,142); x0,y0,x1,y1=axes(d,'Batches observed (20,000 calls each)','Running median latency (microseconds)',.6,[0,.2,.4,.6])
-    pts=[]
-    for i,v in enumerate(data['running_median_us']): pts.extend([x0+i/30*(x1-x0),y0+v/.6*(y1-y0)])
-    d.add(PolyLine(pts,strokeColor=colors.black,strokeWidth=1))
-    for v in [1,10,20,31]: txt(d,x0+(v-1)/30*(x1-x0),18,str(v),7)
-    return d
+    return percentile_plot(['tools_only','static_runtime','trajectory_1'],['Tools','Static','Full'],'Workflow condition')
 captions={
- 'ARCHITECTURE':'Fig. 1. Implemented execution boundary. Trusted registry metadata and a task lock mediate mock tools. CONFIRM suspends; authenticated approval and resumption remain future work.',
+ 'ARCHITECTURE':'Fig. 1. Proposed compilation (dashed) and implemented execution boundary. Trusted registry metadata and a task lock mediate mock tools. CONFIRM suspends; authenticated approval and resumption remain future work.',
  'FLOW':'Fig. 2. Runtime decision flow after proposal validation. Missing required destinations and hard violations block before confirmation; side effects come from trusted metadata.',
- 'COMPARISON':'Fig. 3. Unauthorized mock executions among 16 BLOCK- or CONFIRM-labeled proposals. Full denotes IntentGuard. All policies execute the same 20 authorized proposals.',
- 'SCALABILITY':'Fig. 4. Resource-set scaling of the in-memory predicate. Points are medians of 31 batch means; whiskers show the interquartile range. Construction and tool costs are excluded.',
- 'STABILITY':'Fig. 5. Timing-estimate stability at 1,000 resources. This running-median plot is not algorithmic convergence or a learning curve.',
+ 'COMPARISON':'Fig. 3. Unauthorized mock executions among 22 BLOCK- or CONFIRM-labeled proposals. Full denotes IntentGuard. All policies execute the same 47 authorized proposals.',
+ 'SCALABILITY':'Fig. 5. Whole-runtime resource-set scaling, with p50 (black), p95 (dark gray), and p99 (light gray). Contracts are preconstructed; histories remain short.',
+ 'STABILITY':'Fig. 4. Local three-call workflow percentiles over 2,000 samples per condition: p50 (black), p95 (dark gray), p99 (light gray). No LLM or network is involved.',
 }
-alg = ['Input: contract C, proposal a, trusted registry T', 'State: internal count h; per-task lock L', '1  Validate a; reject malformed input', '2  Acquire L', '3  Check adapter and operands; derive trusted effects', '4  If adapter checks fail: decision = BLOCK', '5  Else evaluate operation, resource, destination,', '     count, then confirmation constraints', '6  If BLOCK or CONFIRM: record; return without tool', '7  Increment h before invoking the handler', '8  Execute; retain output or exception in trace', '9  Return ALLOW with execution outcome', 'On every exit from the locked region: release L']
+alg = ['Input: contract C, proposal a, trusted registry T', 'State: counts, destinations, sequence index; lock L', '1  Validate proposal; acquire L; reject reentrancy', '2  Derive effects and validate adapter operands', '3  Check static boundaries and global count', '4  Check operation/resource budgets, destinations,', '     and next successful-sequence operation', '5  Apply confirmation after hard constraints', '6  If BLOCK or CONFIRM: trace; return', '7  Charge all budgets; record destination', '8  Execute handler; retain result or exception', '9  Advance sequence only if handler succeeds', '10 Trace outcome; release L on every exit']
+
 
 def tabular_pdf(rows, widths, caption):
     t=Table([[p(x,'small') for x in row] for row in rows],colWidths=widths)
@@ -154,7 +159,9 @@ for page,part in enumerate(parts):
     blocks=[b.strip() for b in part.strip().split('\n\n') if b.strip()]
     flowables=[]
     abstract=False
+    algorithm_column_split=None
     for block in blocks:
+        if page==2 and block=="[[FLOW]]": algorithm_column_split=len(flowables)
         if block.startswith('# '):
             story.append(Paragraph(html.escape(block[2:]),ParagraphStyle('title',fontName='Times-Roman',fontSize=23,leading=26,alignment=TA_CENTER,spaceAfter=15)))
         elif block.startswith('Prabhu '):
@@ -169,10 +176,15 @@ for page,part in enumerate(parts):
         elif block.startswith('[['):flowables.append(special_pdf(block[2:-2]))
         elif re.match(r'^\[\d\]',block):flowables.append(p(block,'ref'))
         else:flowables.append(p(block))
-    story.append(BalancedColumns(flowables,nCols=2,innerPadding=18,leftPadding=0,rightPadding=0,needed=40,spaceAfter=0))
+    if algorithm_column_split is not None:
+        columns=Table([[flowables[:algorithm_column_split],flowables[algorithm_column_split:]]],colWidths=[267,267])
+        columns.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),15),('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0)]))
+        story.append(columns)
+    else:
+        story.append(BalancedColumns(flowables,nCols=2,innerPadding=18,leftPadding=0,rightPadding=0,needed=40,spaceAfter=0))
     if page<len(parts)-1:story.append(PageBreak())
-pdf=OUT/'IntentGuard_IEEE_6Page_Draft.pdf'
-doc=SimpleDocTemplate(str(pdf),pagesize=(612,792),rightMargin=39,leftMargin=39,topMargin=47,bottomMargin=43,title='IntentGuard: Task-Scoped Runtime Authorization for Tool-Using AI Agents',author='Prabhu Sivapunniyam')
+pdf=OUT/'IntentGuard_IEEE_6Page_Reviewed.pdf'
+doc=SimpleDocTemplate(str(pdf),pagesize=(612,792),rightMargin=39,leftMargin=39,topMargin=47,bottomMargin=43,title='IntentGuard: Stateful Task-Scoped Authorization for AI Agent Trajectories',author='Prabhu Sivapunniyam')
 doc.build(story)
 
 def esc(t):
@@ -213,17 +225,22 @@ Resource drift & 0 & BLOCK\\ Count violation & 2 & BLOCK\\\hline
     else:
         opt=r'width=\columnwidth,height=1.75in,scale only axis=false,tick label style={font=\scriptsize},label style={font=\scriptsize},ymajorgrids=true,grid style={gray!25},ymin=0,'
         if key=='COMPARISON':
-            opt+=r'ymax=18,ytick={0,4,8,12,16},ylabel={Unauthorized mock executions},symbolic x coords={None,Op. only,No hist.,Full},xtick=data,ybar,bar width=14pt,nodes near coords,'
-            vals=' '.join(f"({label},{benchmark['summary'][policy]['unauthorized_executions']})" for label,policy in zip(['None','Op. only','No hist.','Full'],policies))
+            opt+=r'ymax=24,ytick={0,6,12,18,24},ylabel={Unauthorized mock executions},symbolic x coords={None,Op. only,No hist.,Count,Full},xtick=data,ybar,bar width=14pt,nodes near coords,'
+            vals=' '.join(f"({label},{benchmark['summary'][policy]['unauthorized_executions']})" for label,policy in zip(['None','Op. only','No hist.','Count','Full'],policies))
             plot=r'\addplot[fill=gray!50,draw=black] coordinates {'+vals+'};'
-        elif key=='SCALABILITY':
-            opt+=r'ymax=.6,ytick={0,.2,.4,.6},ylabel={Batch-average latency ($\mu$s)},xlabel={Allowed-resource entries},xmode=log,log basis x=10,xtick={1,10,100,1000,10000},'
-            vals=[]
-            for n,s in data['summary_us'].items():vals.append(f"({n},{s['median']}) += (0,{s['q3']-s['median']}) -= (0,{s['median']-s['q1']})")
-            plot=r'\addplot[black,mark=square*,error bars/.cd,y dir=both,y explicit] coordinates {'+' '.join(vals)+'};'
         else:
-            opt+=r'ymax=.6,ytick={0,.2,.4,.6},ylabel={Running median latency ($\mu$s)},xlabel={Batches observed (20,000 calls each)},xmin=1,xmax=31,xtick={1,10,20,31},'
-            plot=r'\addplot[black] coordinates {'+' '.join(f'({i+1},{v})' for i,v in enumerate(data['running_median_us']))+'};'
+            opt+=r'ymax=60,ytick={0,20,40,60},ylabel={Workflow latency ($\mu$s)},legend style={font=\tiny},'
+            if key=='SCALABILITY':
+                conditions=['trajectory_'+str(n) for n in [1,10,100,1000,10000]]
+                xs=[1,10,100,1000,10000]
+                opt+=r'xlabel={Allowed-resource entries},xmode=log,xtick={1,10,100,1000,10000},'
+            else:
+                conditions=['tools_only','static_runtime','trajectory_1'];xs=[1,2,3]
+                opt+=r'xtick={1,2,3},xticklabels={Tools,Static,Full},'
+            plot=''
+            for q,color in zip(['p50','p95','p99'],['black','black!70','black!40']):
+                vals=' '.join(f"({x},{data['summary_us'][c][q]})" for x,c in zip(xs,conditions))
+                plot+=r'\addplot['+color+r',mark=square*] coordinates {'+vals+r'};\addlegendentry{'+q+'}'
         graphic='\\begin{tikzpicture}\n\\begin{axis}['+opt+']\n'+plot+'\n\\end{axis}\n\\end{tikzpicture}'
     cap=re.sub(r'^Fig\. \d\. ','',captions[key])
     return '\\begin{figure}[ht]\n\\centering\n'+graphic+'\n\\caption{'+esc(cap)+'}\n\\end{figure}\n'
@@ -237,7 +254,7 @@ tex=[r'''\documentclass[conference,letterpaper]{IEEEtran}
 \usepackage{url}
 \usepackage[hidelinks]{hyperref}
 \interdisplaylinepenalty=2500
-\title{IntentGuard: Task-Scoped Runtime Authorization for Tool-Using AI Agents}
+\title{IntentGuard: Stateful Task-Scoped Authorization for AI Agent Trajectories}
 \author{\IEEEauthorblockN{Prabhu Sivapunniyam}\IEEEauthorblockA{Independent Researcher}}
 \begin{document}
 \maketitle

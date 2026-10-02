@@ -1,10 +1,11 @@
 # Paper implementation and verification
 
-The six-page manuscript now incorporates this implementation: guarded execution,
-28 automated tests, 32 cases, 36 proposals, and refreshed predicate timings.
-Its original four-case measurements remain historical artifacts. Current paper
-snapshots are retained in `paper/manuscript/runtime_benchmark_results.json` and
-`paper/manuscript/runtime_timing_results.json`.
+The October 2 reviewer revision includes 41 tests, 44 synthetic cases, and 69
+proposals. Current evidence is `trajectory_benchmark_results.json` and
+`workflow_timing_results.json` under `paper/manuscript/`. Earlier runtime and
+predicate snapshots are historical. The revised PDF is
+`output/pdf/IntentGuard_IEEE_6Page_Reviewer_Revision.pdf`; the old PDF was locked
+and remains the previous version.
 
 ## Implemented and executable
 
@@ -17,7 +18,7 @@ snapshots are retained in `paper/manuscript/runtime_benchmark_results.json` and
 | Shared task count | `GuardedRuntime` | Authorization, charging, and execution serialized by a task lock; 40 concurrent calls under a budget of two admit exactly two. |
 | Failure accounting | `ExecutionResult` and runtime trace | Failed admitted calls consume budget and retain error metadata; blocked and suspended calls consume none. |
 | P01-P15 | `benchmark/deterministic/pairs.json` | 30 synthetic paired members covering operation, resource, destination, confirmation, and count. |
-| Reproducible replay | `experiments/run_benchmark.py` | Four local controls, expected/actual decisions, mock effects, input/source hashes, nonzero exit on disagreement. |
+| Reproducible replay | `experiments/run_benchmark.py` | Five local controls, expected/actual decisions, mock effects, input/source hashes, nonzero exit on disagreement. |
 
 The runtime is an in-process trusted-host component. The caller must not give
 untrusted planner code access to its internals or direct tool credentials. A
@@ -38,7 +39,7 @@ From the repository root with Python 3.11 or newer:
 ```powershell
 python -m unittest discover -s tests -v
 python experiments/run_benchmark.py
-python paper/manuscript/measure_draft.py
+python experiments/measure_runtime.py
 ```
 
 If `python` is not on PATH in this Codex workspace, use:
@@ -56,32 +57,30 @@ The benchmark writes `results/processed/deterministic.json` (ignored by Git).
 `generate_deterministic_pairs.py` regenerates the committed cases; the tests
 check that these fixtures remain synchronized with their declared design.
 
-Timing runs write `results/processed/current_timing.json`, leaving the original
-paper's measurement snapshot intact. They measure the predicate, not the new
-execution wrapper. Timing remains machine- and run-dependent.
+Whole-runtime timings include initialization, validation, locking, history,
+traces, and three mock handlers, with preconstructed contracts/proposals.
+There are 2,000 samples per condition, no model or network. At one resource,
+full runtime p50/p95/p99 is 17.9/26.6/45.9 microseconds. These are descriptive
+single-machine measurements, not agent-loop overhead.
 
 ## Current fixed-proposal results
 
-All 28 automated tests passed on CPython 3.12.14. The existing four-case
-diagnostic also retained its 1/4, 2/4, 3/4, and 4/4 control results. Fresh timing
-measurements were saved separately from the historical paper snapshot.
+All 41 tests passed. P01-P15, the two original cases, and T01-T06 yield 44 cases,
+69 proposals, and 47 authorized proposals.
 
-The default run includes the 30 paired members and the two original cases:
-32 cases, 36 proposals, and 20 authorized proposals.
-
-| Local policy | Fully matching cases | Matching decisions | Unauthorized mock executions | Authorized mock executions |
+| Local policy | Fully matching cases | Matching decisions | Unauthorized executions | Authorized executions |
 |---|---:|---:|---:|---:|
-| No enforcement | 16/32 | 20/36 | 16 | 20/20 |
-| Operation allowlist | 21/32 | 25/36 | 11 | 20/20 |
-| Contract without history | 31/32 | 35/36 | 1 | 20/20 |
-| IntentGuard | 32/32 | 36/36 | 0 | 20/20 |
+| No enforcement | 22/44 | 47/69 | 22 | 47/47 |
+| Operation allowlist | 27/44 | 52/69 | 17 | 47/47 |
+| No history | 37/44 | 62/69 | 7 | 47/47 |
+| Count only | 38/44 | 63/69 | 6 | 47/47 |
+| IntentGuard | 44/44 | 69/69 | 0 | 47/47 |
 
-IntentGuard suspends two confirmation-required proposals. These proposals are
-counted as unauthorized if a control executes them before approval. None of the
-four policies reports mock tool errors. All policies share the same trusted
-tool-schema checks, so these controls isolate policy differences rather than
-tool parsing. The unrestricted and operation-only controls intentionally lack
-resource/destination/approval/count restrictions.
+The full policy blocks 20 and suspends two proposals. All five policies share
+trusted operand checks and report no mock tool errors. Richer history rejects
+six violations admitted by count-only enforcement. Implemented trajectory fields
+are `operation_limits`, `resource_limits`, `operation_sequence`, and
+`max_distinct_destinations`; tests live in `tests/test_trajectory.py`.
 
 These are branch-oriented synthetic checks, not independent evidence of general
 attack resistance or a comparison with Task Shield, PAuth, DRIFT, or CaMeL.

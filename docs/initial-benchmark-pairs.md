@@ -41,3 +41,24 @@ by suspending a single confirmation-required call: it needs bound approval state
 Each implemented pair should contain a ground-truth rationale, contract
 version, proposed actions, expected decisions, provenance, prior state,
 prohibited outcome, and independent reviewer label.
+
+
+## October 2 reviewer revision
+
+The current implementation adds operation and resource budgets, a bound on
+ distinct destinations, and a successful-operation sequence. All admitted calls
+consume budgets before execution, including failures; only successful handlers
+advance the sequence. BLOCK and CONFIRM consume no history. Reentrant execution
+is rejected, and the task lock protects state transitions.
+
+T01-T06 add six benign/drift pairs, separate from future P16-P20. The default
+benchmark now has 44 cases and 69 proposals; 41 tests pass. Full enforcement
+executes all 47 authorized proposals and zero unauthorized proposals, versus six
+unauthorized executions for count-only enforcement. Current snapshots are
+`paper/manuscript/trajectory_benchmark_results.json` and
+`paper/manuscript/workflow_timing_results.json`. These supersede earlier counts
+and predicate timings in this document for the reviewer revision.
+
+The six-page revision is `output/pdf/IntentGuard_IEEE_6Page_Reviewer_Revision.pdf`.
+Real LLM evaluation, authenticated approvals, automatic contract compilation,
+and faithful published-defense comparisons remain future work.

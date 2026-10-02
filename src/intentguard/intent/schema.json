@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Intent Authorization Contract v1",
+  "title": "Intent Authorization Contract v2",
   "type": "object",
   "required": ["objective", "allowed_operations", "allowed_resources"],
   "properties": {
@@ -10,8 +10,17 @@
     "allowed_destinations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
     "prohibited_operations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
     "confirmation_required": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
-    "max_action_count": {"type": ["integer", "null"], "minimum": 1}
+    "max_action_count": {"type": ["integer", "null"], "minimum": 1},
+    "trajectory": {
+      "type": "object",
+      "properties": {
+        "operation_limits": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "resource_limits": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "operation_sequence": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "max_distinct_destinations": {"type": ["integer", "null"], "minimum": 1}
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false
 }
-

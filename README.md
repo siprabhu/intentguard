@@ -8,6 +8,10 @@ task.
 > Status: executable deterministic research prototype. Local mock benchmarks
 > are available; no model-driven or production security claims are established.
 
+The reviewer revision passes 41 tests. Full policy matches 69/69 decisions and
+executes 47/47 authorized proposals with zero unauthorized executions; count-only
+enforcement admits six trajectory violations. These are synthetic mechanism results.
+
 ## Quick start
 
 ```powershell
@@ -22,9 +26,9 @@ disagrees with any case label or a mock tool fails. Traces and source/input hash
 are written to `results/processed/deterministic.json`.
 
 The suite includes deterministic decision tests, malformed-input tests,
-execution-boundary tests, concurrency/count enforcement, and runner regression
+execution-boundary tests, scoped budgets, sequence/destination history, concurrency, and runner regression
 tests. The benchmark contains P01-P15 (30 paired members) plus the two original
-cases, totaling 32 cases and 36 proposed actions. Labels have not been
+cases, plus T01-T06 (12 trajectory members), totaling 44 cases and 69 proposed actions. Labels have not been
 independently reviewed. Tool execution is simulated entirely in memory.
 
 See [the paper implementation report](docs/paper-implementation-status.md) for

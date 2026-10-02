@@ -2,7 +2,6 @@
 import argparse
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
-import hashlib
 import json
 from pathlib import Path
 import platform
@@ -10,10 +9,11 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'src'))
-from intentguard import IntentContract, ProposedAction, GuardedRuntime, ToolSpec
+from intentguard import IntentContract, ProposedAction, GuardedRuntime, ToolSpec, TrajectoryPolicy
 from intentguard.intent.contract import identifier
+from intentguard.reproducibility import source_digest
 
-POLICIES = ('none', 'operation_only', 'no_history', 'intentguard')
+POLICIES = ('none', 'operation_only', 'no_history', 'count_only', 'intentguard')
 # Trusted tool metadata, independent of action proposals and expected labels.
 TOOL_METADATA = {
     'read': (False, None), 'search': (False, None),
@@ -88,7 +88,9 @@ def run_case(case, policy):
     if policy not in POLICIES:
         raise ValueError(f'unknown policy: {policy}')
     if policy == 'no_history':
-        contract=replace(contract,max_action_count=None)
+        contract=replace(contract,max_action_count=None,trajectory=TrajectoryPolicy())
+    elif policy == 'count_only':
+        contract=replace(contract,trajectory=TrajectoryPolicy())
     elif policy in ('none','operation_only'):
         contract=IntentContract(
             objective=contract.objective,
@@ -130,7 +132,7 @@ def run(cases):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--cases',type=Path,nargs='+',default=[ROOT/'benchmark/deterministic/pairs.json',ROOT/'benchmark/benign/IG-BEN-001.json',ROOT/'benchmark/indirect_injection/IG-INJ-001.json'])
+    parser.add_argument('--cases',type=Path,nargs='+',default=[ROOT/'benchmark/deterministic/pairs.json',ROOT/'benchmark/benign/IG-BEN-001.json',ROOT/'benchmark/indirect_injection/IG-INJ-001.json',ROOT/'benchmark/deterministic/trajectory_pairs.json'])
     parser.add_argument('--output',type=Path,default=ROOT/'results/processed/deterministic.json')
     args=parser.parse_args(argv)
     try:
@@ -141,7 +143,8 @@ def main(argv=None):
     tracked=[*args.cases,Path(__file__),*sorted((ROOT/'src/intentguard').rglob('*.py'))]
     result['metadata']=dict(timestamp=datetime.now(timezone.utc).isoformat(),python=platform.python_version(),
         platform=platform.platform(),evaluation='fixed synthetic proposals; no LLM',
-        sha256={str(p.relative_to(ROOT) if p.is_relative_to(ROOT) else p):hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked})
+        hash_algorithm='sha256-utf8-lf',
+        sha256={(p.relative_to(ROOT) if p.is_relative_to(ROOT) else p).as_posix():source_digest(p) for p in tracked})
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8')
     print(json.dumps(result['summary'],indent=2))
